@@ -27,6 +27,8 @@ import shutil
 import time
 
 from tempfile import NamedTemporaryFile
+from packaging.version import Version
+
 from whipper.common import accurip, checksum, common, mbngs, path
 from whipper.program import cdrdao, cdparanoia
 from whipper.result import result
@@ -99,9 +101,8 @@ class Program:
 
         Also warn about buggy cdrdao versions.
         """
-        from pkg_resources import parse_version as V
         version = cdrdao.version()
-        if V(version) < V('1.2.3rc2'):
+        if Version(version) < Version('1.2.3rc2'):
             logger.warning('cdrdao older than 1.2.3 has a pre-gap length bug.'
                            ' See http://sourceforge.net/tracker/?func=detail&aid=604751&group_id=2171&atid=102171')  # noqa: E501
 
@@ -150,8 +151,8 @@ class Program:
     @staticmethod
     def addDisambiguation(template_part, metadata):
         """Add disambiguation to template path part string."""
-        if metadata.catalogNumber:
-            template_part += ' (%s)' % metadata.catalogNumber
+        if metadata.catalogNumbers:
+            template_part += ' (%s)' % ', '.join(metadata.catalogNumbers)
         elif metadata.barcode:
             template_part += ' (%s)' % metadata.barcode
         return template_part
@@ -195,7 +196,7 @@ class Program:
         assert isinstance(outdir, str), "%r is not str" % outdir
         assert isinstance(template, str), "%r is not str" % template
         v = {}
-        v['A'] = 'Unknown Artist'
+        v['S'] = v['A'] = 'Unknown Artist'
         v['I'] = v['d'] = v['D'] = mbdiscid  # fallback for title
         v['r'] = 'unknown'
         v['R'] = 'Unknown'
@@ -220,7 +221,7 @@ class Program:
             v['d'] = metadata.releaseTitle
             v['D'] = metadata.title
             v['B'] = metadata.barcode
-            v['C'] = metadata.catalogNumber
+            v['C'] = ', '.join(metadata.catalogNumbers)
             v['c'] = metadata.releaseDisambCmt
             v['M'] = metadata.discTotal
             v['N'] = metadata.discNumber
@@ -336,20 +337,20 @@ class Program:
             print('\nMatching releases:')
 
             for metadata in metadatas:
-                print('\nArtist  : %s' % metadata.artist)
-                print('Title   : %s' % metadata.releaseTitle)
-                print('Duration: %s' % common.formatTime(
+                print('\nArtist   : %s' % metadata.artist)
+                print('Title    : %s' % metadata.releaseTitle)
+                print('Duration : %s' % common.formatTime(
                                            metadata.duration / 1000.0))
-                print('URL     : %s' % metadata.url)
-                print('Release : %s' % metadata.mbid)
-                print('Type    : %s' % metadata.releaseType)
+                print('URL      : %s' % metadata.url)
+                print('Release  : %s' % metadata.mbid)
+                print('Type     : %s' % metadata.releaseType)
                 if metadata.barcode:
-                    print("Barcode : %s" % metadata.barcode)
+                    print("Barcode  : %s" % metadata.barcode)
                 if metadata.countries:
-                    print("Country : %s" % ', '.join(metadata.countries))
+                    print("Country  : %s" % ', '.join(metadata.countries))
                 # TODO: Add test for non ASCII catalog numbers: see issue #215
-                if metadata.catalogNumber:
-                    print("Cat no  : %s" % metadata.catalogNumber)
+                if metadata.catalogNumbers:
+                    print("Cat no(s): %s" % ', '.join(metadata.catalogNumbers))
 
                 delta = abs(metadata.duration - ittoc.duration())
                 if delta not in deltas:
@@ -378,7 +379,7 @@ class Program:
                 logger.debug('asked for release %r, only kept %r', release,
                              metadatas)
                 if len(metadatas) == 1:
-                    logger.info('picked requested release id %s', release)
+                    logger.info('picked requested release id %s', metadatas[0].mbid)
                     print('Artist: %s' % metadatas[0].artist)
                     print('Title : %s' % metadatas[0].releaseTitle)
                 elif not metadatas:
